@@ -1,4 +1,12 @@
 // Databricks notebook source
+import org.apache.spark.sql.streaming.Trigger.ProcessingTime
+spark.conf.set("dfs.adls.oauth2.access.token.provider.type", "ClientCredential")
+spark.conf.set("dfs.adls.oauth2.client.id", "1d76bb0b-c509-49ff-8639-23c5e1bb9b4d")
+spark.conf.set("dfs.adls.oauth2.credential", "K/k2d/Ane1/mvghYsY1tbE0/6xTdP/92uQafJMYTXnQ=")
+spark.conf.set("dfs.adls.oauth2.refresh.url", "https://login.microsoftonline.com/c622fc2d-f138-46eb-a729-3aa0cce44410/oauth2/token")
+
+// COMMAND ----------
+
 import org.apache.spark.eventhubs.{ ConnectionStringBuilder, EventHubsConf, EventPosition }
 import org.apache.spark.sql.functions.{ explode, split }
 import org.apache.spark.sql.functions._
@@ -21,21 +29,10 @@ eventhubs.printSchema
 
 // COMMAND ----------
 
-// Sending the incoming stream into the console.
-// Data comes in batches!
-eventhubs.writeStream.outputMode("append").format("console").option("truncate", false).start().awaitTermination()
-
-// COMMAND ----------
-
 // Event Hub message format is JSON and contains "body" field
 // Body is binary, so we cast it to string to see the actual content of the message
 val messages = eventhubs
   .withColumn("Body", $"body".cast(StringType))
-  .select("Body", "ISBN")
-
-messages.printSchema
-
-messages.writeStream.outputMode("append").format("console").option("truncate", false).start().awaitTermination()
 
 // COMMAND ----------
 
@@ -47,8 +44,16 @@ var df = eventhubs.select(
   get_json_object(($"body").cast("string"), "$.data.author").alias("author"),
   get_json_object(($"body").cast("string"), "$.data.description").alias("description"),
   get_json_object(($"body").cast("string"), "$.data.published_year").alias("published_year"),
-  get_json_object(($"body").cast("string"), "$.data.publisher").alias("publisher")
-).groupBy($"author", $"published_year").count()
+  get_json_object(($"body").cast("string"), "$.data.publisher").alias("publisher"),
+  get_json_object(($"body").cast("string"), "$.data.updated_date").alias("updated_at"),
+  unix_timestamp(
+        get_json_object(($"body").cast("string"), "$.data.updated_date"), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+      ).cast(TimestampType).alias("time")
+)
+.withWatermark("time", "5 minutes")
+//.groupBy($"author", $"published_year", window($"time", "2 minutes"))
+.groupBy($"author", $"published_year")
+.count()
 
 // COMMAND ----------
 
@@ -58,7 +63,18 @@ val query = df.writeStream
     .format("console")        
     .outputMode("complete") 
     .trigger(ProcessingTime("60 seconds"))
-    .start().awaitTermination()
+    .start()
+
+// COMMAND ----------
+
+val query = df.writeStream
+    .format("json")
+    .option("path", "adl://staplesazurepoc.azuredatalakestore.net/poc_csv/book_checkpoint_json")
+    //.option("checkpointLocation", "adl://staplesazurepoc.azuredatalakestore.net/poc_csv/book_stream_json")
+    .partitionBy("author")
+    .trigger(ProcessingTime("60 seconds"))
+    .start()
+
 
 // COMMAND ----------
 
