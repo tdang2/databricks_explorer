@@ -4,6 +4,11 @@
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC SHOW GRANT `user1@tridanginnitico.onmicrosoft.com` ON TABLE apsupp
+
+# COMMAND ----------
+
 # MAGIC %sql 
 # MAGIC SHOW GRANT `user1@tridanginnitico.onmicrosoft.com` ON VIEW restrictedview1;
 
