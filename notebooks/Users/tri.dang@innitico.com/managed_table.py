@@ -50,11 +50,22 @@ out_lvl_df.write.mode('overwrite').format("parquet").saveAsTable('out_lvl')
 # MAGIC %sql 
 # MAGIC REVOKE ALL PRIVILEGES ON DATABASE default FROM `user1@tridanginnitico.onmicrosoft.com`;
 # MAGIC GRANT SELECT ON VIEW RestrictedView2 TO `user1@tridanginnitico.onmicrosoft.com`;
+# MAGIC GRANT SELECT ON TABLE apsupp TO `user1@tridanginnitico.onmicrosoft.com`;
 
 # COMMAND ----------
 
 # MAGIC %sql 
 # MAGIC SHOW GRANT `user1@tridanginnitico.onmicrosoft.com` ON VIEW RestrictedView2;
+
+# COMMAND ----------
+
+# MAGIC %sql 
+# MAGIC SHOW GRANT `user1@tridanginnitico.onmicrosoft.com` ON TABLE apsupp;
+
+# COMMAND ----------
+
+# MAGIC %sql 
+# MAGIC SHOW GRANT `user1@tridanginnitico.onmicrosoft.com` ON TABLE coystr;
 
 # COMMAND ----------
 
