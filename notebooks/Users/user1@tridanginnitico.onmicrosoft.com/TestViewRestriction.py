@@ -24,3 +24,13 @@
 
 # COMMAND ----------
 
+# MAGIC %sql 
+# MAGIC SELECT * FROM apsupp LIMIT 10;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT * FROM restrictedview1 LIMIT 10;
+
+# COMMAND ----------
+
