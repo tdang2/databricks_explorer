@@ -43,24 +43,31 @@ out_lvl_df.write.mode('overwrite').format("parquet").saveAsTable('out_lvl')
 # COMMAND ----------
 
 # MAGIC %sql 
-# MAGIC CREATE OR REPLACE VIEW restrictedview2 AS SELECT ASNUM, ASNAME FROM apsupp where ASNUM > 100000 and ASNUM < 999999;
+# MAGIC DROP VIEW IF EXISTS restrictedview2;
+# MAGIC CREATE VIEW restrictedview2 AS SELECT ASNUM, ASNAME FROM apsupp where ASNUM > 100000 and ASNUM < 999999;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SHOW GRANT ON apsupp;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SHOW GRANT ON restrictedview2;
 
 # COMMAND ----------
 
 # MAGIC %sql 
 # MAGIC REVOKE ALL PRIVILEGES ON DATABASE default FROM `user1@tridanginnitico.onmicrosoft.com`;
 # MAGIC REVOKE ALL PRIVILEGES ON TABLE apsupp FROM `user1@tridanginnitico.onmicrosoft.com`;
-# MAGIC GRANT SELECT ON VIEW RestrictedView2 TO `user1@tridanginnitico.onmicrosoft.com`;
+# MAGIC ALTER TABLE restrictedview2 OWNER TO `tri.dang@innitico.com`;
+# MAGIC GRANT SELECT ON VIEW restrictedview2 TO `user1@tridanginnitico.onmicrosoft.com`;
 
 # COMMAND ----------
 
 # MAGIC %sql 
-# MAGIC SHOW GRANT `user1@tridanginnitico.onmicrosoft.com` ON VIEW RestrictedView2;
-
-# COMMAND ----------
-
-# MAGIC %sql 
-# MAGIC SHOW GRANT `user1@tridanginnitico.onmicrosoft.com` ON TABLE apsupp;
+# MAGIC SHOW GRANT ON restrictedview2;
 
 # COMMAND ----------
 
@@ -75,12 +82,7 @@ out_lvl_df.write.mode('overwrite').format("parquet").saveAsTable('out_lvl')
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC DESCRIBE EXTENDED RestrictedView2
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC ALTER TABLE apsupp OWNER TO `tri.dang@innitico.com`
+# MAGIC DESCRIBE EXTENDED restrictedview2
 
 # COMMAND ----------
 
