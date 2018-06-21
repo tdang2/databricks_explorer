@@ -16,7 +16,7 @@ val connectionString = ConnectionStringBuilder("Endpoint=sb://mean-world.service
   .setEventHubName("mean-world-app")
   .build
 val eventHubsConf = EventHubsConf(connectionString)
-  .setStartingPosition(EventPosition.fromEndOfStream)
+//  .setStartingPosition(EventPosition.fromEndOfStream)
   
 val eventhubs = spark.readStream
   .format("eventhubs")
@@ -50,31 +50,37 @@ var df = eventhubs.select(
         get_json_object(($"body").cast("string"), "$.data.updated_date"), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
       ).cast(TimestampType).alias("time")
 )
-.withWatermark("time", "5 minutes")
+//.withWatermark("time", "5 minutes")
 //.groupBy($"author", $"published_year", window($"time", "2 minutes"))
-.groupBy($"author", $"published_year")
-.count()
+//.groupBy($"author", $"published_year")
+//.count()
 
 // COMMAND ----------
 
 import org.apache.spark.sql.streaming.Trigger.ProcessingTime
 
 val query = df.writeStream
-    .format("console")        
-    .outputMode("complete") 
-    .trigger(ProcessingTime("60 seconds"))
+    .format("memory")
+    .queryName("streamTest")
+    //.outputMode("append") 
+    //.trigger(ProcessingTime("60 seconds"))
     .start()
 
 // COMMAND ----------
 
 val query = df.writeStream
     .format("json")
-    .option("path", "adl://staplesazurepoc.azuredatalakestore.net/poc_csv/book_checkpoint_json")
-    //.option("checkpointLocation", "adl://staplesazurepoc.azuredatalakestore.net/poc_csv/book_stream_json")
+    .option("path", "adl://staplesazurepoc.azuredatalakestore.net/poc_csv/book_checkpoint_json2")
+    .option("checkpointLocation", "adl://staplesazurepoc.azuredatalakestore.net/poc_csv/book_stream_json2")
     .partitionBy("author")
     .trigger(ProcessingTime("60 seconds"))
     .start()
 
+
+// COMMAND ----------
+
+// MAGIC %sql
+// MAGIC SELECT * FROM streamTest;
 
 // COMMAND ----------
 
