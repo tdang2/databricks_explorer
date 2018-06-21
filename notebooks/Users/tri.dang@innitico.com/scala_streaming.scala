@@ -50,10 +50,10 @@ var df = eventhubs.select(
         get_json_object(($"body").cast("string"), "$.data.updated_date"), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
       ).cast(TimestampType).alias("time")
 )
-//.withWatermark("time", "5 minutes")
-//.groupBy($"author", $"published_year", window($"time", "2 minutes"))
+.withWatermark("time", "5 minutes")
+.groupBy($"author", $"published_year", window($"time", "2 minutes"))
 //.groupBy($"author", $"published_year")
-//.count()
+.count()
 
 // COMMAND ----------
 
@@ -70,8 +70,8 @@ val query = df.writeStream
 
 val query = df.writeStream
     .format("json")
-    .option("path", "adl://staplesazurepoc.azuredatalakestore.net/poc_csv/book_checkpoint_json2")
-    .option("checkpointLocation", "adl://staplesazurepoc.azuredatalakestore.net/poc_csv/book_stream_json2")
+    .option("path", "adl://staplesazurepoc.azuredatalakestore.net/poc_csv/book_stream_json_path")
+    .option("checkpointLocation", "adl://staplesazurepoc.azuredatalakestore.net/poc_csv/book_stream_checkpoint_path")
     .partitionBy("author")
     .trigger(ProcessingTime("60 seconds"))
     .start()
