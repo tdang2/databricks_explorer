@@ -49,8 +49,8 @@ out_lvl_df.write.mode('overwrite').format("parquet").saveAsTable('out_lvl')
 
 # MAGIC %sql 
 # MAGIC REVOKE ALL PRIVILEGES ON DATABASE default FROM `user1@tridanginnitico.onmicrosoft.com`;
+# MAGIC REVOKE ALL PRIVILEGES ON TABLE apsupp FROM `user1@tridanginnitico.onmicrosoft.com`;
 # MAGIC GRANT SELECT ON VIEW RestrictedView2 TO `user1@tridanginnitico.onmicrosoft.com`;
-# MAGIC GRANT SELECT ON TABLE apsupp TO `user1@tridanginnitico.onmicrosoft.com`;
 
 # COMMAND ----------
 
@@ -69,3 +69,25 @@ out_lvl_df.write.mode('overwrite').format("parquet").saveAsTable('out_lvl')
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC DESCRIBE EXTENDED apsupp;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC DESCRIBE EXTENDED RestrictedView2
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC ALTER TABLE apsupp OWNER TO `tri.dang@innitico.com`
+
+# COMMAND ----------
+
+# MAGIC %sql 
+# MAGIC SHOW GRANT ON TABLE apsupp;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC DESCRIBE EXTENDED apsupp;
