@@ -74,23 +74,29 @@ apsupp_df2 = sqlContext.read.parquet("adl://staplespocnoencryption.azuredatalake
 # COMMAND ----------
 
 # MAGIC %sql 
-# MAGIC CREATE OR REPLACE VIEW restrictedview1 AS SELECT ASNUM, ASNAME FROM apsupp where ASNUM > 100000 and ASNUM < 999999;
+# MAGIC DROP VIEW IF EXISTS restrictedview1;
+# MAGIC CREATE VIEW restrictedview1 AS SELECT ASNUM, ASNAME FROM apsupp where ASNUM > 100000 and ASNUM < 999999;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SHOW GRANT ON restrictedview1;
 
 # COMMAND ----------
 
 # MAGIC %sql 
 # MAGIC REVOKE ALL PRIVILEGES ON DATABASE default FROM `user1@tridanginnitico.onmicrosoft.com`;
-# MAGIC GRANT SELECT ON VIEW RestrictedView1 TO `user1@tridanginnitico.onmicrosoft.com`;
+# MAGIC GRANT SELECT ON VIEW restrictedview1 TO `user1@tridanginnitico.onmicrosoft.com`;
 
 # COMMAND ----------
 
 # MAGIC %sql 
-# MAGIC SHOW GRANT ON VIEW RestrictedView1;
+# MAGIC SHOW GRANT ON restrictedview1;
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SHOW GRANT `user1@tridanginnitico.onmicrosoft.com` ON VIEW RestrictedView1;
+# MAGIC SELECT * FROM restrictedview1 LIMIT 10;
 
 # COMMAND ----------
 
