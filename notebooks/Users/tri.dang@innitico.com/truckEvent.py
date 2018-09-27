@@ -1,8 +1,8 @@
-# Databricks notebook source
+# Databricks notebook source. Faking all ids
 configs = {"dfs.adls.oauth2.access.token.provider.type": "ClientCredential",
-           "dfs.adls.oauth2.client.id": "1d0ac982-d44a-4b20-8872-0002ea256723",
-           "dfs.adls.oauth2.credential": "iiBYLJqGVlAzxmw5HTc+kr8lgQOO4NXDT9DzKjWXiDU=",
-           "dfs.adls.oauth2.refresh.url": "https://login.microsoftonline.com/b101f7ab-56ac-485f-b397-5279698fdf7d/oauth2/token"}
+           "dfs.adls.oauth2.client.id": "1d0ac982-d44a-4b20-8872-00asdfasdfsadfs6723",
+           "dfs.adls.oauth2.credential": "iiBYLJqGVlAzxmw5HTc+krasdfasdfsadfsaf8lgQOO4NXDT9DzKjWXiDU=",
+           "dfs.adls.oauth2.refresh.url": "https://login.microsoftonline.com/b101f7ab-56ac-asdfs-dsfsfda397-5279asdfsf698fdf7d/oauth2/token"}
 # This to set up the mount at the beginning. Only need to do it once
 # dbutils.fs.mount(
 #   source = "adl://staplessupplychain.azuredatalakestore.net/truckEvents",
