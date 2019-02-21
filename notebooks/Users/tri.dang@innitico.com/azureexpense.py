@@ -1,19 +1,19 @@
 # Databricks notebook source
-from pyspark.sql.functions import col, split, array_contains, lit, current_date
+from pyspark.sql.functions import col, split, array_contains, lit, current_date, lower
 from pyspark.sql.types import IntegerType
 # Setup connection
 spark.conf.set(
   "fs.azure.account.key." + dbutils.secrets.get(scope="scda-dev", key="scdablob-dev-account-name") + ".blob.core.windows.net",
   dbutils.secrets.get(scope="scda-dev", key="scdablobdev-access-key"))
-# Read the files
-sc_dev_path = "wasbs://scfinance@" + dbutils.secrets.get(scope="scda-dev", key="scdablob-dev-account-name") + ".blob.core.windows.net/azuredev/weeklyscexpense"
-sc_prod_path = "wasbs://scfinance@" + dbutils.secrets.get(scope="scda-dev", key="scdablob-dev-account-name") + ".blob.core.windows.net/azureprod/weeklyscexpense"
-corp_dev_path = "wasbs://scfinance@" + dbutils.secrets.get(scope="scda-dev", key="scdablob-dev-account-name") + ".blob.core.windows.net/azuredev/weeklycorpexpense"
-corp_prod_path = "wasbs://scfinance@" + dbutils.secrets.get(scope="scda-dev", key="scdablob-dev-account-name") + ".blob.core.windows.net/azureprod/weeklycorpexpense"
+# Read the files 
+sc_dev_path = "wasbs://scfinance@" + dbutils.secrets.get(scope="scda-dev", key="scdablob-dev-account-name") + ".blob.core.windows.net/scdevmtd/dailyexpense"
+sc_prod_path = "wasbs://scfinance@" + dbutils.secrets.get(scope="scda-dev", key="scdablob-dev-account-name") + ".blob.core.windows.net/scprodmtd/dailyexpense"
+corp_dev_path = "wasbs://scfinance@" + dbutils.secrets.get(scope="scda-dev", key="scdablob-dev-account-name") + ".blob.core.windows.net/corpdevmtd/dailyexpense"
+corp_prod_path = "wasbs://scfinance@" + dbutils.secrets.get(scope="scda-dev", key="scdablob-dev-account-name") + ".blob.core.windows.net/corpprodmtd/dailyexpense"
 
 # COMMAND ----------
 
-def latest_week_folder(path):
+def latest_date_folder(path):
   df = sqlContext.createDataFrame(dbutils.fs.ls(path))
   s = df.describe(['name'])
   max_name = s.where(s['summary'] == 'max').select('name').collect()[0]['name']
@@ -21,7 +21,7 @@ def latest_week_folder(path):
 
 # COMMAND ----------
 
-def latest_week_file(path):
+def latest_file(path):
   df = sqlContext.createDataFrame(dbutils.fs.ls(path))
   s = df.describe(['size'])
   max_size = s.where(s['summary'] == 'max').select('size').collect()[0]['size']
@@ -35,14 +35,18 @@ def get_cost_center(tag_col_arr):
   for pair_str in tag_col_arr:
     pair = pair_str.split(":")
     if pair[0] == "\"cost_center_number\"":
-      res = int(pair[1].replace("\"", ""))
+      num_str = pair[1].replace("\"", "")
+      try:
+        res = int(pair[1].replace("\"", ""))
+      except:
+        res = ''
   return res
 
 # COMMAND ----------
 
 @udf
 def get_team(tag_col_arr):  
-  res = None
+  res = ''
   for pair_str in tag_col_arr:
     pair = pair_str.split(":")
     if pair[0] == "\"team\"":
@@ -51,30 +55,52 @@ def get_team(tag_col_arr):
 
 # COMMAND ----------
 
+from pyspark.sql.functions import month, year
 def process_expense_file(file_path):
-  df = spark.read.load(file_path, format="csv", header="true", escape='"')
-  df = df.filter(df["Tags"].isNotNull()).select(
+  tempDf = spark.read.load(file_path, format="csv", header="true", escape='"')
+  tempDf = tempDf.filter(tempDf["Tags"].isNotNull()).select(
     col("SubscriptionName"),
     col("ResourceGroup"),
     col("ResourceLocation"),
     col("ProductName"),
     col("PreTaxCost"),
     col("ResourceType"),
+    col("UsageDateTime"),
     split(col("Tags"), ",").alias("tags")
   )
-  res = df.withColumn("cost_center_number", lit(get_cost_center(df["tags"])))\
-          .withColumn("team", lit(get_team(df["tags"])))\
-          .withColumn("processed_date", current_date())\
-          .select(["processed_date", "SubscriptionName", "ResourceGroup", "ResourceLocation", "ProductName", "PreTaxCost", "ResourceType", "cost_center_number", "team"])
-  res = res.filter(res["cost_center_number"].isNotNull())
-  return res
+  return tempDf.withColumn("costCenterNumber", lit(get_cost_center(tempDf["tags"])))\
+          .withColumn("team", lit(get_team(tempDf["tags"])))\
+          .withColumn("usageMonth", month(tempDf['UsageDateTime']))\
+          .withColumn("usageYear", year(tempDf['UsageDateTime']))\
+          .withColumn("processedDate", current_date())\
+          .select(
+    col("processedDate"),
+    col("SubscriptionName"),
+    col("ResourceGroup"),
+    col("ResourceLocation"),
+    col("ProductName"),
+    col("ResourceType"),
+    col("costCenterNumber"),
+    col("team"),
+    col("usageMonth"),
+    col("usageYear"),
+    col("UsageDateTime"),
+    col("PreTaxCost")
+  ).filter("costCenterNumber is not NULL")
+
+# COMMAND ----------
+
+def convertLowerCase(df):
+  for colName in ['ResourceGroup', 'ResourceLocation', 'ProductName', 'ResourceType', 'SubscriptionName']:
+    df = df.withColumn(colName, lower(col(colName)));
+  return df
 
 # COMMAND ----------
 
 def save_overwrite_unmanaged_table(df, tname, writeMode):
   """ Overwrite or create unmanaged tables. Databrick knows schema but data stored in ADLS"""
   path = "dbfs:/mnt/SupplyChain/dev/azureexpense/"
-  df.write.partitionBy("SubscriptionName", "processed_date", "cost_center_number", "team").mode(writeMode).format("parquet").option("path", path + tname).saveAsTable(tname)
+  df.write.partitionBy("SubscriptionName", "usageYear", "usageMonth", "costCenterNumber").mode(writeMode).format("parquet").option("path", path + tname).saveAsTable(tname)
 
 # COMMAND ----------
 
@@ -85,48 +111,45 @@ def save_schema(df, path_file_name):
 
 # COMMAND ----------
 
-latest_folder = latest_week_folder(sc_dev_path)
-latest_file = latest_week_file(latest_folder)
-df = process_expense_file(latest_file)
-save_overwrite_unmanaged_table(df, 'weekly_expense', 'overwrite')
-save_schema(df, "dbfs:/mnt/SupplyChain/schema/azureexpense/weekly_expense")
+# MAGIC %md
+# MAGIC First, clean current month to date data
 
 # COMMAND ----------
 
-result = sqlContext.read.parquet("dbfs:/mnt/SupplyChain/dev/azureexpense/weekly_expense")
-display(result)
+from datetime import datetime
+# Check whether the data exists
+filedf = sqlContext.createDataFrame(dbutils.fs.ls("dbfs:/mnt/SupplyChain/dev/azureexpense/"))
+if len(filedf.filter(filedf['name'] == 'sc_expense/').head(1)) > 0:
+  dataDf = sqlContext.read.parquet("dbfs:/mnt/SupplyChain/dev/azureexpense/sc_expense")  
+  m = datetime.now().month
+  y = datetime.now().year    
+  dataDf = dataDf.where((dataDf.usageMonth != m) & (dataDf.usageYear != y))
+  if len(dataDf.head(1)) == 0:    
+    dbutils.fs.rm("dbfs:/mnt/SupplyChain/dev/azureexpense/sc_expense",True)
+  else:
+    save_overwrite_unmanaged_table(dataDf, 'sc_expense', 'overwrite')
 
 # COMMAND ----------
 
-schema = sc.pickleFile("dbfs:/mnt/SupplyChain/schema/azureexpense/weekly_expense")
-schema.collect()
+# MAGIC %md
+# MAGIC Then process month to date data for this year. Month and Year are calendar frame (not fiscal). Be careful with month and year variable as it will overwrite month() and year() spark function
 
 # COMMAND ----------
 
-latest_folder = latest_week_folder(sc_prod_path)
-latest_file = latest_week_file(latest_folder)
-df = process_expense_file(latest_file)
-save_overwrite_unmanaged_table(df, 'weekly_expense', 'append')
+for ffolder in [sc_dev_path, sc_prod_path, corp_dev_path, corp_prod_path]:
+  latest_folder = latest_date_folder(ffolder)
+  lfile = latest_file(latest_folder)
+  x = process_expense_file(lfile) 
+  x = convertLowerCase(x)
+  save_overwrite_unmanaged_table(x, 'sc_expense', 'append')
+save_schema(x, "dbfs:/mnt/SupplyChain/schema/azureexpense/sc_expense")
 
 # COMMAND ----------
 
-latest_folder = latest_week_folder(corp_dev_path)
-latest_file = latest_week_file(latest_folder)
-df = process_expense_file(latest_file)
-save_overwrite_unmanaged_table(df, 'weekly_expense', 'append')
+loadDf = sqlContext.read.parquet("dbfs:/mnt/SupplyChain/dev/azureexpense/sc_expense")
+display(loadDf)
 
 # COMMAND ----------
 
-latest_folder = latest_week_folder(corp_prod_path)
-latest_file = latest_week_file(latest_folder)
-df = process_expense_file(latest_file)
-save_overwrite_unmanaged_table(df, 'weekly_expense', 'append')
-
-# COMMAND ----------
-
-result = sqlContext.read.parquet("dbfs:/mnt/SupplyChain/dev/azureexpense/weekly_expense")
-display(result)
-
-# COMMAND ----------
-
-
+from pyspark.sql import functions as F
+loadDf.where((loadDf['SubscriptionName'] == 'supplychain-nonprod') & (loadDf['ResourceGroup'] == 'supplychain_scda_de_0')).groupBy().agg(F.sum('PreTaxCost')).collect()
